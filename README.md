@@ -35,4 +35,4 @@ python process_image.py --nifti nifti.nii --anat anat.nii
     - default - `2.0`
 - `--dpi`
     - dpi for png output
-    - default - 300
+    - default - `300`
