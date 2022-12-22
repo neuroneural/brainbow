@@ -23,7 +23,7 @@ python process_image.py --nifti nifti.nii --anat anat.nii
     - required
 
 - `--dir`
-    - name for the results directory
+    - name for the results directory within `results/` directory
     - can be nested (e.g., `final/most_final`)
     - default - current UTC time
 - `--sign`
