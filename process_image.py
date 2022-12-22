@@ -1,7 +1,6 @@
 import os
 import json
 
-from scipy import linspace
 from nipy import load_image
 from nipy.core.api import xyz_affine
 from nipy.labs.viz import plot_map, coord_transform
@@ -155,7 +154,7 @@ def process_image(
         "thr": thr,
         "dpi": dpi,
     }
-    with open(f"./results/{DIR}/setup.json", "w") as f:
+    with open(f"./results/{DIR}/setup.json", "w", encoding="utf8") as f:
         json.dump(setup, f)
 
     print(f"Results can be found at ./results/{DIR}")
@@ -219,5 +218,3 @@ if __name__ == "__main__":
         thr=args.thr,
         dpi=args.dpi,
     )
-
-# python process_image.py --nifti hartford_rest_agg__component_ica_.nii --anat ch.nii --sign pos
