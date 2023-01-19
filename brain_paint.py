@@ -51,7 +51,7 @@ pdict = {
     "blue": ((0.0, 0.5, 0.5), (0.1, 0.0, 0.0), (0.5, 0.0, 0.0), (1.0, 0.0, 0.0)),
 }
 
-both_cmap = matplotlib.colors.LinearSegmentedColormap("brian_combined", cdict, 256)
+both_cmap = matplotlib.colors.LinearSegmentedColormap("brain_combined", cdict, 256)
 pos_cmap = matplotlib.colors.LinearSegmentedColormap("brain_above", pdict, 256)
 neg_cmap = matplotlib.colors.LinearSegmentedColormap("brain_below", ndict, 256)
 
