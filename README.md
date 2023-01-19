@@ -1,19 +1,17 @@
 # brain-paint
-Scripts for visualizing ICA/ROI brain parcellation
+Script for visualizing ICA/ROI brain parcellation
 
 # Requirements
 ```
-conda create -n brain_paint python=3.9
-conda activate brain_paint
-pip install -r requirements.txt
+pip install brain-paint
 ```
 
 # Examples
 ```
-python process_image.py --nifti nifti.nii --anat anat.nii
+brain-paint --nifti nifti.nii --anat anat.nii
 ```
 
-# Options for `process_image.py`
+# Options for `brain-paint`
 
 - `--nifti`
     - path to the 4D nifti to convert to images
@@ -23,7 +21,8 @@ python process_image.py --nifti nifti.nii --anat anat.nii
     - required
 
 - `--dir`
-    - name for the results directory within `results/` directory
+    - name for the directory where to save results
+    - **brain-paint** creates a directory `brain-paint-results`, where `dir` directory will be saved
     - can be nested (e.g., `final/most_final`)
     - default - current UTC time
 - `--sign`
