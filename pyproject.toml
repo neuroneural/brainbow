@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "brain-paint"
-version = "0.0.5"
+version = "0.0.6"
 authors = [
     {author = "Pavel Popov", email = "paavali.popov@gmail.com"},
     {author = "Sergey Plis", email = "s.m.plis@gmail.com"},
@@ -21,3 +21,6 @@ classifiers = [
 [project.urls]
 "Homepage" = "https://github.com/neuroneural/brain-paint"
 "Bug Tracker" = "https://github.com/neuroneural/brain-paint/issues"
+
+[project.scripts]
+brain-paint = "process_image:parser"

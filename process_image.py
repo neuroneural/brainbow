@@ -1,14 +1,18 @@
 import os
 import json
 
+import numpy as np
+
+# nipy relies on the depricated (as of numpy>1.20) aliases for basic objects
+# here's fix ofr it
+np.float = float
+
 from nipy import load_image
 from nipy.core.api import xyz_affine
 from nipy.labs.viz import plot_map, coord_transform
-import numpy as np
 import matplotlib
 from pylab import savefig, subplot, subplots_adjust, figure, rc, text
 
-from datetime import datetime
 
 # colormap processing
 cdict = {
@@ -69,13 +73,46 @@ DSGN = {
     "pos": -1.0,
 }
 
-UTCNOW = datetime.utcnow().strftime("%y%m%d.%H%M%S")
+
+def process_output(output: str):
+    ext = ["png", "svg"]
+    if output is None:
+        output = "brain-paint-output"
+
+    output_split = output.split(".")
+    if len(output_split) > 1:
+        if output_split[-1] == "png":
+            output = ".".join(output_split[0 : len(output_split) - 1])
+            ext = ["png"]
+        elif output_split[-1] == "svg":
+            output = ".".join(output_split[0 : len(output_split) - 1])
+            ext = ["svg"]
+
+    return output, ext
 
 
 def process_image(
-    NIFTI, ANAT, DIR, SGN, thr: float = 2.0, dpi: int = 300, iscale: int = 3
+    NIFTI,
+    ANAT,
+    SGN,
+    output: str = None,
+    dir: str = None,
+    thr: float = 2.0,
+    dpi: int = 300,
+    iscale: int = 3,
 ):
 
+    # create output directory
+    if dir is not None:
+        if not dir.startswith("/"):
+            if not dir.startswith("~"):
+                dir = f"./{dir}"
+        os.makedirs(f"{dir}", exist_ok=True)
+
+    # process output name
+    output, ext = process_output(output)
+
+    print("Opening nifti files")
     nifti = load_image(NIFTI)
     anat = load_image(ANAT)
 
@@ -95,6 +132,7 @@ def process_image(
     font = {"size": 8}
     rc("font", **font)
 
+    print("Plotting figures")
     figure(figsize=[iscale * y, iscale * x / 3])
     subplots_adjust(left=0.01, right=0.99, bottom=0.01, top=0.99, wspace=0.1, hspace=0)
 
@@ -132,35 +170,42 @@ def process_image(
                 color=(1, 1, 1),
             )
 
-    # create output directory and save results
-    if DIR is None:
-        DIR = UTCNOW
-    os.makedirs(f"./results/{DIR}")
+    # save results
+    if dir is None:
+        dir = ""
+    else:
+        dir = f"{dir}/"
 
-    savefig(
-        f"./results/{DIR}/output.png",
-        facecolor=(0, 0, 0),
-        dpi=dpi,
-    )
-    savefig(
-        f"./results/{DIR}/output.svg",
-        facecolor=(0, 0, 0),
-    )
+    if "png" in ext:
+        savefig(
+            f"{dir}{output}.png",
+            facecolor=(0, 0, 0),
+            dpi=dpi,
+        )
+    if "svg" in ext:
+        savefig(
+            f"{dir}{output}.svg",
+            facecolor=(0, 0, 0),
+        )
 
-    setup = {
-        "nifti": NIFTI,
-        "anat": ANAT,
-        "sgn": SGN,
-        "thr": thr,
-        "dpi": dpi,
-    }
-    with open(f"./results/{DIR}/setup.json", "w", encoding="utf8") as f:
-        json.dump(setup, f)
+    if dir != "":
+        setup = {
+            "nifti": NIFTI,
+            "anat": ANAT,
+            "sgn": SGN,
+            "thr": thr,
+            "dpi": dpi,
+        }
+        with open(f"{dir}setup.json", "w", encoding="utf8") as f:
+            json.dump(setup, f, indent=4)
 
-    print(f"Results can be found at ./results/{DIR}")
+    if dir != "":
+        print(f"Results can be found at {dir}")
+    else:
+        print("Done!")
 
 
-if __name__ == "__main__":
+def parser():
     import warnings
     import argparse
 
@@ -181,12 +226,6 @@ if __name__ == "__main__":
         help="Path to the anatomical image to use as underlay",
     )
     parser.add_argument(
-        "--dir",
-        type=str,
-        default=None,
-        help="Name for the results directory (can be nested) (default: UTC time)",
-    )
-    parser.add_argument(
         "--sign",
         type=str,
         choices=["pos", "neg", "both"],
@@ -194,6 +233,21 @@ if __name__ == "__main__":
         help="Show only positive components ('pos'), \
             only negative components ('neg'), \
                 or both ('both')",
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default="brain-paint-output",
+        help="Name of the output file(s) (default: brain-paint-output.png/svg) \n\
+            You can specify the exact extension (png or svg). If none is provided, both extensions will be used",
+    )
+    parser.add_argument(
+        "--dir",
+        type=str,
+        help="Name for the results directory (can be nested) (optional) \n \
+            If none is provided, output will be placed in the directory where brain-paint is executed\n\
+                Is some is provided, the image setup.json containing the image processing info \
+                    will be created in this directory",
     )
     parser.add_argument(
         "--thr",
@@ -205,7 +259,7 @@ if __name__ == "__main__":
         "--dpi",
         type=int,
         default=300,
-        help="PNG output dpi",
+        help="PNG output dpi (default: 300)",
     )
 
     args = parser.parse_args()
@@ -213,8 +267,9 @@ if __name__ == "__main__":
     process_image(
         NIFTI=args.nifti,
         ANAT=args.anat,
-        DIR=args.dir,
         SGN=args.sign,
+        output=args.output,
+        dir=args.dir,
         thr=args.thr,
         dpi=args.dpi,
     )

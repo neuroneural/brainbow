@@ -20,11 +20,14 @@ brain-paint --nifti nifti.nii --anat anat.nii
     - path to the anatomical image to use as underlay
     - required
 
+- `--output`
+    - Name of the output file(s) 
+    - default - brain-paint-output.png/svg
+    - You can specify the exact extension (png or svg). If none is provided, both extensions will be used.
 - `--dir`
     - name for the directory where to save results
-    - **brain-paint** creates a directory `brain-paint-results`, where `dir` directory will be saved
     - can be nested (e.g., `final/most_final`)
-    - default - current UTC time
+    - default - directory where brain-paint is executed
 - `--sign`
     - choices: `pos, neg, both`
     - used for filtering only positive, only negative, or both components
