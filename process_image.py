@@ -79,7 +79,7 @@ DSGN = {
 def process_output(output: str):
     ext = ["png", "svg"]
     if output is None:
-        output = "brainpaint-output"
+        output = "brainbow-output"
 
     output_split = output.split(".")
     if len(output_split) > 1:
@@ -214,24 +214,27 @@ def parser():
     warnings.filterwarnings("ignore")
 
     parser = argparse.ArgumentParser(
-        prog="brainpaint",
+        prog="brainbow",
         description="A tool for brain parcellation visualization",
         epilog="Text at the bottom of help",
     )
 
     parser.add_argument(
+        "-n",
         "--nifti",
         type=str,
         required=True,
         help="Path to the 4D nifti to convert to images",
     )
     parser.add_argument(
+        "-a",
         "--anat",
         type=str,
         required=True,
         help="Path to the anatomical image to use as underlay",
     )
     parser.add_argument(
+        "-s",
         "--sign",
         type=str,
         choices=["pos", "neg", "both"],
@@ -241,17 +244,18 @@ def parser():
                 or both (both) (default: both)",
     )
     parser.add_argument(
+        "-o",
         "--output",
         type=str,
-        default="brainpaint-output",
-        help="Name of the output file(s) (default: brainpaint-output.png/svg).\
+        default="brainbow-output",
+        help="Name of the output file(s) (default: brainbow-output.png/svg).\
             You can specify the exact extension (png or svg). If none is provided, both extensions will be used.",
     )
     parser.add_argument(
         "--dir",
         type=str,
         help="(optional) Name for the results directory (can be nested).\
-            If none is provided, output will be placed in the directory where brainpaint is executed\n\
+            If none is provided, output will be placed in the directory where brainbow is executed\n\
                 If some is provided, the image setup.json containing the image processing info \
                     will be created in this directory",
     )
@@ -270,7 +274,7 @@ def parser():
 
     if len(sys.argv) == 1:
         parser.print_help()
-        sys.exit(1)
+        parser.exit()
 
     args = parser.parse_args()
 

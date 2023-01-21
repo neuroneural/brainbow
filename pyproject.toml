@@ -3,8 +3,8 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "brain-paint"
-version = "0.0.6"
+name = "brainbow"
+version = "0.0.8"
 authors = [
     {author = "Pavel Popov", email = "paavali.popov@gmail.com"},
     {author = "Sergey Plis", email = "s.m.plis@gmail.com"},
@@ -19,8 +19,8 @@ classifiers = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/neuroneural/brain-paint"
-"Bug Tracker" = "https://github.com/neuroneural/brain-paint/issues"
+"Homepage" = "https://github.com/neuroneural/brainbow"
+"Bug Tracker" = "https://github.com/neuroneural/brainbow/issues"
 
 [project.scripts]
-brain-paint = "process_image:parser"
+brainbow = "process_image:parser"
