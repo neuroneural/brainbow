@@ -98,18 +98,18 @@ def process_image(
     ANAT,
     SGN,
     output: str = None,
-    dir: str = None,
+    save_dir: str = None,
     thr: float = 2.0,
     dpi: int = 300,
     iscale: int = 3,
 ):
 
     # create output directory
-    if dir is not None:
-        if not dir.startswith("/"):
-            if not dir.startswith("~"):
-                dir = f"./{dir}"
-        os.makedirs(f"{dir}", exist_ok=True)
+    if save_dir is not None:
+        if not save_dir.startswith("/"):
+            if not save_dir.startswith("~"):
+                save_dir = f"./{save_dir}"
+        os.makedirs(f"{save_dir}", exist_ok=True)
 
     # process output name
     output, ext = process_output(output)
@@ -173,24 +173,24 @@ def process_image(
             )
 
     # save results
-    if dir is None:
-        dir = ""
+    if save_dir is None:
+        save_dir = ""
     else:
-        dir = f"{dir}/"
+        save_dir = f"{dir}/"
 
     if "png" in ext:
         savefig(
-            f"{dir}{output}.png",
+            f"{save_dir}{output}.png",
             facecolor=(0, 0, 0),
             dpi=dpi,
         )
     if "svg" in ext:
         savefig(
-            f"{dir}{output}.svg",
+            f"{save_dir}{output}.svg",
             facecolor=(0, 0, 0),
         )
 
-    if dir != "":
+    if save_dir != "":
         setup = {
             "nifti": NIFTI,
             "anat": ANAT,
@@ -198,16 +198,16 @@ def process_image(
             "thr": thr,
             "dpi": dpi,
         }
-        with open(f"{dir}setup.json", "w", encoding="utf8") as f:
+        with open(f"{save_dir}setup.json", "w", encoding="utf8") as f:
             json.dump(setup, f, indent=4)
 
-    if dir != "":
-        print(f"Results can be found at {dir}")
+    if save_dir != "":
+        print(f"Results can be found at {save_dir}")
     else:
         print("Done!")
 
 
-def parser():
+def parse():
     import warnings
     import argparse
 
@@ -249,7 +249,8 @@ def parser():
         type=str,
         default="brainbow-output",
         help="Name of the output file(s) (default: brainbow-output.png/svg).\
-            You can specify the exact extension (png or svg). If none is provided, both extensions will be used.",
+            You can specify the exact extension (png or svg). If none is provided, \
+                both extensions will be used.",
     )
     parser.add_argument(
         "--dir",
@@ -283,7 +284,7 @@ def parser():
         ANAT=args.anat,
         SGN=args.sign,
         output=args.output,
-        dir=args.dir,
+        save_dir=args.dir,
         thr=args.thr,
         dpi=args.dpi,
     )
