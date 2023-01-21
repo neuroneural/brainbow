@@ -216,7 +216,6 @@ def parse():
     parser = argparse.ArgumentParser(
         prog="brainbow",
         description="A tool for brain parcellation visualization",
-        epilog="Text at the bottom of help",
     )
 
     parser.add_argument(

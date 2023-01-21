@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "brainbow"
-version = "0.0.9"
+version = "0.0.10"
 authors = [
     {author = "Pavel Popov", email = "paavali.popov@gmail.com"},
     {author = "Sergey Plis", email = "s.m.plis@gmail.com"},
