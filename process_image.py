@@ -1,4 +1,6 @@
 import os
+import sys
+
 import json
 
 import numpy as np
@@ -77,7 +79,7 @@ DSGN = {
 def process_output(output: str):
     ext = ["png", "svg"]
     if output is None:
-        output = "brain-paint-output"
+        output = "brainpaint-output"
 
     output_split = output.split(".")
     if len(output_split) > 1:
@@ -211,7 +213,11 @@ def parser():
 
     warnings.filterwarnings("ignore")
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        prog="brainpaint",
+        description="A tool for brain parcellation visualization",
+        epilog="Text at the bottom of help",
+    )
 
     parser.add_argument(
         "--nifti",
@@ -230,30 +236,30 @@ def parser():
         type=str,
         choices=["pos", "neg", "both"],
         default="both",
-        help="Show only positive components ('pos'), \
-            only negative components ('neg'), \
-                or both ('both')",
+        help="Show only positive components (pos), \
+            only negative components (neg), \
+                or both (both) (default: both)",
     )
     parser.add_argument(
         "--output",
         type=str,
-        default="brain-paint-output",
-        help="Name of the output file(s) (default: brain-paint-output.png/svg) \n\
-            You can specify the exact extension (png or svg). If none is provided, both extensions will be used",
+        default="brainpaint-output",
+        help="Name of the output file(s) (default: brainpaint-output.png/svg).\
+            You can specify the exact extension (png or svg). If none is provided, both extensions will be used.",
     )
     parser.add_argument(
         "--dir",
         type=str,
-        help="Name for the results directory (can be nested) (optional) \n \
-            If none is provided, output will be placed in the directory where brain-paint is executed\n\
-                Is some is provided, the image setup.json containing the image processing info \
+        help="(optional) Name for the results directory (can be nested).\
+            If none is provided, output will be placed in the directory where brainpaint is executed\n\
+                If some is provided, the image setup.json containing the image processing info \
                     will be created in this directory",
     )
     parser.add_argument(
         "--thr",
         type=float,
         default=2.0,
-        help="Threshold value for component significance",
+        help="Threshold value for component significance (default: 2.0)",
     )
     parser.add_argument(
         "--dpi",
@@ -261,6 +267,10 @@ def parser():
         default=300,
         help="PNG output dpi (default: 300)",
     )
+
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(1)
 
     args = parser.parse_args()
 

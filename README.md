@@ -1,17 +1,17 @@
-# brain-paint
+# brainpaint
 Script for visualizing ICA/ROI brain parcellation
 
 # Requirements
 ```
-pip install brain-paint
+pip install brainpaint
 ```
 
 # Examples
 ```
-brain-paint --nifti nifti.nii --anat anat.nii
+brainpaint --nifti nifti.nii --anat anat.nii
 ```
 
-# Options for `brain-paint`
+# Options for `brainpaint`
 
 - `--nifti`
     - path to the 4D nifti to convert to images
@@ -22,12 +22,12 @@ brain-paint --nifti nifti.nii --anat anat.nii
 
 - `--output`
     - Name of the output file(s) 
-    - default - brain-paint-output.png/svg
+    - default - brainpaint-output.png/svg
     - You can specify the exact extension (png or svg). If none is provided, both extensions will be used.
 - `--dir`
     - name for the directory where to save results
     - can be nested (e.g., `final/most_final`)
-    - default - directory where brain-paint is executed
+    - default - directory where brainpaint is executed
 - `--sign`
     - choices: `pos, neg, both`
     - used for filtering only positive, only negative, or both components
