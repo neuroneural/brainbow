@@ -1,5 +1,6 @@
 # brainbow
 Script for visualizing ICA/ROI brain parcellation
+<img src="https://raw.githubusercontent.com/neuroneural/brainbow/main/.github/images/1.png"/>
 
 # Requirements
 ```
@@ -38,3 +39,8 @@ brainbow --nifti nifti.nii --anat anat.nii
 - `--dpi`
     - dpi for png output
     - default - `300`
+
+
+# Output example
+
+<img src="https://raw.githubusercontent.com/neuroneural/brainbow/main/.github/images/brainbow-output.png"/>
