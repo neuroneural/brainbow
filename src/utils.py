@@ -6,7 +6,7 @@ import numpy as np
 from scipy import ndimage
 
 
-def process_output(output: str, save_dir: str = None):
+def process_output_path(output: str, save_dir: str = None):
     # create output directory
     if save_dir is not None:
         if not save_dir.startswith("/"):

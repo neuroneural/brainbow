@@ -10,8 +10,8 @@ from src.utils import is_numlike, is_iterable, get_bounds, get_mask_bounds
 
 
 def plot_map(
-    map,
-    affine,
+    map=None,
+    affine=None,
     cut_coords=None,
     anat=None,
     anat_affine=None,
@@ -93,12 +93,13 @@ def plot_map(
         black_bg=black_bg,
     )
 
-    if threshold:
-        map = np.ma.masked_inside(map, -threshold, threshold, copy=False)
+    if anat is not None:
+        _plot_anat(slicer, anat, anat_affine, title=title)
+    if map is not None:
+        if threshold is not None:
+            map = np.ma.masked_inside(map, -threshold, threshold, copy=False)
+        slicer.plot_map(map, affine, **imshow_kwargs)
 
-    _plot_anat(slicer, anat, anat_affine, title=title)
-
-    slicer.plot_map(map, affine, **imshow_kwargs)
     return slicer
 
 
@@ -239,7 +240,6 @@ class CustomSlicer(object):
         if isinstance(axes, plt.Axes) and figure is None:
             figure = axes.figure
 
-        # if not isinstance(figure, pl.Figure):
         if not isinstance(figure, plt.Figure):
             # Make sure that we have a figure
             figsize = cls._default_figsize[:]
@@ -250,7 +250,6 @@ class CustomSlicer(object):
             # figure = pl.figure(figure, figsize=figsize, facecolor=facecolor)
             figure = plt.figure(figure, figsize=figsize, facecolor=facecolor)
         else:
-            # if isinstance(axes, pl.Axes):
             if isinstance(axes, plt.Axes):
                 assert axes.figure is figure, "The axes passed are not " "in the figure"
 
