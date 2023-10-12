@@ -1,96 +1,33 @@
-import os
 import sys
 
 import json
-
 import numpy as np
+import nibabel as nib
 
-# nipy relies on the depricated (as of numpy>1.20) aliases for basic objects
-# here's fix ofr it
-np.float = float
-
-from nipy import load_image
-from nipy.core.api import xyz_affine
-from nipy.labs.viz import plot_map, coord_transform
-import matplotlib
-from pylab import savefig, subplot, subplots_adjust, figure, rc, text
+from scipy.ndimage import affine_transform, shift
+from nibabel.processing import resample_from_to, resample_to_output
+from nibabel.affines import apply_affine, to_matvec, from_matvec
+from scipy.ndimage import zoom
 
 
-# colormap processing
-cdict = {
-    "red": (
-        (0.0, 0.0, 0.0),
-        (0.25, 0.2, 0.2),
-        (0.45, 0.0, 0.0),
-        (0.5, 0.5, 0.5),
-        (0.55, 0.0, 0.0),
-        (0.75, 0.8, 0.8),
-        (1.0, 1.0, 1.0),
-    ),
-    "green": (
-        (0.0, 0.0, 1.0),
-        (0.25, 0.0, 0.0),
-        (0.45, 0.0, 0.0),
-        (0.5, 0.5, 0.5),
-        (0.55, 0.0, 0.0),
-        (0.75, 0.0, 0.0),
-        (1.0, 1.0, 1.0),
-    ),
-    "blue": (
-        (0.0, 0.0, 1.0),
-        (0.25, 0.8, 0.8),
-        (0.45, 0.0, 0.0),
-        (0.5, 0.5, 0.5),
-        (0.55, 0.0, 0.0),
-        (0.75, 0.0, 0.0),
-        (1.0, 0.0, 0.0),
-    ),
-}
-ndict = {
-    "red": ((0.0, 0.0, 0.0), (0.5, 0.2, 0.2), (0.9, 0.0, 0.0), (1.0, 0.5, 0.5)),
-    "green": ((0.0, 0.0, 1.0), (0.5, 0.0, 0.0), (0.9, 0.0, 0.0), (1.0, 0.5, 0.5)),
-    "blue": ((0.0, 0.0, 1.0), (0.5, 0.8, 0.8), (0.9, 0.0, 0.0), (1.0, 0.5, 0.5)),
-}
-pdict = {
-    "red": ((0.0, 0.5, 0.5), (0.1, 0.0, 0.0), (0.5, 0.8, 0.8), (1.0, 1.0, 1.0)),
-    "green": ((0.0, 0.5, 0.5), (0.1, 0.0, 0.0), (0.5, 0.0, 0.0), (1.0, 1.0, 1.0)),
-    "blue": ((0.0, 0.5, 0.5), (0.1, 0.0, 0.0), (0.5, 0.0, 0.0), (1.0, 0.0, 0.0)),
-}
+# from nibabel.viewers import OrthoSlicer3D
 
-both_cmap = matplotlib.colors.LinearSegmentedColormap("brain_combined", cdict, 256)
-pos_cmap = matplotlib.colors.LinearSegmentedColormap("brain_above", pdict, 256)
-neg_cmap = matplotlib.colors.LinearSegmentedColormap("brain_below", ndict, 256)
+from tqdm import tqdm
 
-cmaps = {
-    "both": both_cmap,
-    "neg": neg_cmap,
-    "pos": pos_cmap,
-}
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 
-# dict of signs for filtering negative/positive components ("both" is here for compatibility)
-# it is intentionally inverted
-DSGN = {
-    "both": 0.0,
-    "neg": 1.0,
-    "pos": -1.0,
-}
+# from nipy import load_image
+# from nipy.core.api import xyz_affine
+# from nipy.labs.viz import plot_map, coord_transform
 
 
-def process_output(output: str):
-    ext = ["png", "svg"]
-    if output is None:
-        output = "brainbow-output"
+# from pylab import savefig, subplot, subplots_adjust, figure, rc, text
 
-    output_split = output.split(".")
-    if len(output_split) > 1:
-        if output_split[-1] == "png":
-            output = ".".join(output_split[0 : len(output_split) - 1])
-            ext = ["png"]
-        elif output_split[-1] == "svg":
-            output = ".".join(output_split[0 : len(output_split) - 1])
-            ext = ["svg"]
 
-    return output, ext
+from src.colormaps import CMAPS, DSGN
+from src.utils import process_output
+from src.slicer import OrthoSlicer3D
 
 
 def process_image(
@@ -103,74 +40,253 @@ def process_image(
     dpi: int = 300,
     iscale: int = 3,
 ):
+    # create output directory (if needed) and define output extension
+    output, ext = process_output(output, save_dir)
 
-    # create output directory
-    if save_dir is not None:
-        if not save_dir.startswith("/"):
-            if not save_dir.startswith("~"):
-                save_dir = f"./{save_dir}"
-        os.makedirs(f"{save_dir}", exist_ok=True)
+    print("Loading and processing the nifti files")
 
-    # process output name
-    output, ext = process_output(output)
+    nifti = nib.load(NIFTI)
+    nifti_affine = nifti.affine
+    nifti_data = nifti.get_fdata()
+    # for idx in range(nifti_data.shape[-1]):
 
-    print("Opening nifti files")
-    nifti = load_image(NIFTI)
-    anat = load_image(ANAT)
+    anat = nib.load(ANAT)
+    anat_affine = anat.affine
+    anat_data = anat.get_fdata()
 
-    imax = nifti.get_data().max()
-    imin = nifti.get_data().min()
+    # new_nifti_data = []
+    # new_nifti_affines = []
 
-    imshow_args = {"vmax": imax, "vmin": imin}
+    # for idx in range(5):
+    #     single_component = nifti_data[:, :, :, idx]
+    #     single_component = nib.Nifti1Image(
+    #         single_component, nifti.affine, header=nifti.header
+    #     )
+    #     single_component = resample_from_to(single_component, anat)
 
-    mcmap = cmaps[SGN]
+    #     new_nifti_data += [single_component.get_fdata()]
+    #     new_nifti_affines += [single_component.affine]
 
-    num_features = nifti.shape[-1]
-    # number of rows
-    y = max([1, int(round(np.sqrt(num_features / 3)))])
-    # number of columns
-    x = int(np.ceil(num_features / y) + 1)
+    # # # upscale nifti images
+    # reference = nib.Nifti1Image(
+    #     nifti_data[:, :, :, 0], nifti.affine, header=nifti.header
+    # )
+    # anat = resample_from_to(anat, reference)
+    # anat_data = anat.get_fdata()
+    # anat_affine = anat.affine
 
-    font = {"size": 8}
-    rc("font", **font)
+    # nifti_voxels = np.diag(to_matvec(nifti.affine)[0])
+    # anat_voxels = np.diag(to_matvec(anat.affine)[0])
+    # ratio = nifti_voxels / anat_voxels
+    # nifti_affine = from_matvec(np.eye(3), to_matvec(nifti.affine)[1])
+    # # for idx in range(nifti_data.shape[-1]):
+    # for idx in range(5):
+    #     single_component = nifti_data[:, :, :, idx]
+    #     # print(single_component.shape)
+    #     upscaled_data = zoom(single_component, zoom=ratio, order=3)
+    #     # print(upscaled_data.shape)
 
-    print("Plotting figures")
-    figure(figsize=[iscale * y, iscale * x / 3])
-    subplots_adjust(left=0.01, right=0.99, bottom=0.01, top=0.99, wspace=0.1, hspace=0)
+    #     new_nifti_data += [upscaled_data]
+    # nifti_data = np.stack(new_nifti_data, axis=-1)
+    # print(nifti_data.shape)
 
-    for i in range(0, num_features):
+    # Apply affine transform to data
+    # mode = "wrap"
+    # for idx in range(nifti_data.shape[-1]):
+    #     component = nifti_data[:, :, :, idx]
+    #     nifti_data[:, :, :, idx] = shift(
+    #         input=affine_transform(
+    #             input=component,
+    #             matrix=np.linalg.inv(nifti_affine),
+    #             mode=mode
+    #         ),
+    #         shift=np.array(component.shape)/2,
+    #         mode=mode,
+    #     )
+    # anat_data = shift(
+    #     input=affine_transform(
+    #         input=anat_data,
+    #         matrix=np.linalg.inv(anat_affine),
+    #         mode=mode
+    #     ),
+    #     shift=np.array(anat_data.shape)/2,
+    #     mode=mode,
+    # )
+
+    # inv_affine = transform.AffineTransform(np.linalg.inv(anat_affine), dimensionality=3)
+    # affine = transform.AffineTransform(anat_affine,  dimensionality=3)
+    # anat_data1 = transform.warp(anat_data, inverse_map=inv_affine)
+    # anat_data2 = transform.warp(anat_data, inverse_map=affine)
+
+    print(f"Anat shape: {anat_data.shape}")
+
+    # # ### Apply affine transform to anat_data
+    # reference = nib.Nifti1Image(nifti_data[:, :, :, 0], nifti.affine, header=nifti.header)
+    # anat = resample_from_to(anat, reference)
+    # anat_data = anat.get_fdata()
+    # # whole_aff = np.linalg.inv(img2.affine).dot(img1.affine.dot(slice_aff))
+
+    # derive a few things for plotting
+    vmax = nifti_data.max()
+    vmin = nifti_data.min()
+    mcmap = CMAPS[SGN]
+    imshow_args = {"vmax": vmax, "vmin": vmin, "cmap": mcmap}
+
+    # n_features = nifti.shape[-1]
+    n_features = 5
+    n_cols = max([1, round(np.sqrt(n_features / 3))])
+    # 3 here is the number of views; for the figure layout it accounts that
+    # the column's width is greater than the row's height
+    n_rows = np.ceil(n_features / n_cols).astype(int)
+
+    print("Plotting components:")
+
+    # create figure and subplots
+    # fig, ax = plt.subplots(
+    #     ncols=n_cols,
+    #     nrows=n_rows,
+    #     figsize=(iscale * n_cols, iscale * n_rows / 3),
+    #     facecolor = 'black',
+    # )
+
+    # fig = plt.figure(figsize=(iscale * n_cols, iscale * n_rows / 3), facecolor = 'black')
+    # DEBUGGING
+    fig = plt.figure(figsize=(iscale * n_cols, iscale * n_rows))
+    gs = gridspec.GridSpec(ncols=n_cols, nrows=n_rows)
+    fig.subplots_adjust(
+        left=0.01, right=0.99, bottom=0.01, top=0.99, wspace=0.1, hspace=0
+    )
+
+    # plot components
+    # for i in tqdm(range(n_features)):
+    for i in tqdm(range(5)):
+        # set subplots
+        # inner_gs = gridspec.GridSpecFromSubplotSpec(
+        #     ncols=3,
+        #     nrows=1,
+        #     subplot_spec=gs[i],
+        #     width_ratios=[1.2, 1, 1],
+        # )
+        # ax = [plt.subplot(inner_gs[j]) for j in range(9)]
+        # DEBUGGING
+        inner_gs = gridspec.GridSpecFromSubplotSpec(
+            ncols=3,
+            nrows=3,
+            subplot_spec=gs[i],
+            # width_ratios=[1.2, 1, 1],
+            # height_ratios=[1, 1, 1]
+        )
+        ax0 = [plt.subplot(inner_gs[0, j]) for j in range(3)]
+        ax1 = [plt.subplot(inner_gs[1, j]) for j in range(3)]
+        ax2 = [plt.subplot(inner_gs[2, j]) for j in range(3)]
+
         # load the ICA component and filter it according to SGN
-        data = nifti.get_data()[:, :, :, i]
+        data = nifti_data[:, :, :, i]
         data[np.sign(data) == DSGN[SGN]] = 0
-
         # plot component
         if max(abs(data.flatten())) > thr + 0.2:
-            ax = subplot(x, y, i + 1)
             max_idx = np.unravel_index(np.argmax(data), data.shape)
-            plot_map(
-                data,
-                xyz_affine(nifti),
-                anat=anat.get_data(),
-                anat_affine=xyz_affine(anat),
-                black_bg=True,
-                threshold=thr,
-                cut_coords=coord_transform(
-                    max_idx[0], max_idx[1], max_idx[2], xyz_affine(nifti)
-                ),
-                annotate=False,
-                axes=ax,
-                cmap=mcmap,
-                draw_cross=False,
-                **imshow_args,
+            # max_coordinate = apply_affine(nifti_affine, max_idx)
+            max_coordinate = apply_affine(nifti_affine, max_idx)
+            # print(f"cut indices: {max_idx}")
+            # print(f"cut coordinates: {max_coordinate}")
+
+            masked_data = np.ma.masked_inside(
+                data, v1=-thr - 0.2, v2=thr + 0.2, copy=False
             )
-            text(
-                0.0,
-                0.95,
-                str(i),
-                transform=ax.transAxes,
-                horizontalalignment="center",
-                color=(1, 1, 1),
+            # overlay_data = [
+            #     masked_data[max_idx[0], :, :].T,
+            #     masked_data[:, max_idx[1], :].T,
+            #     masked_data[:, :, max_idx[2]].T,
+            # ]
+
+            # underlay_data = [
+            #     anat_data[max_idx[0], :, :].T,
+            #     anat_data[:, max_idx[1], :].T,
+            #     anat_data[:, :, max_idx[2]].T,
+            # ]
+
+            OrthoSlicer3D(
+                anat_data,
+                anat_affine,
+                axes=ax0,
+                position=max_coordinate,
+                underlay=True,
+                imshow_args=imshow_args,
             )
+            OrthoSlicer3D(
+                masked_data,
+                nifti_affine,
+                axes=ax0,
+                position=max_coordinate,
+                underlay=False,
+                imshow_args=imshow_args,
+            )
+
+            OrthoSlicer3D(
+                anat_data,
+                anat_affine,
+                axes=ax1,
+                position=max_coordinate,
+                underlay=True,
+                imshow_args=imshow_args,
+            )
+            OrthoSlicer3D(
+                masked_data,
+                nifti_affine,
+                axes=ax2,
+                position=max_coordinate,
+                underlay=False,
+                imshow_args=imshow_args,
+            )
+            # underlay_slicer.show()
+            # for plane in range(3):
+
+            # ax[plane].imshow(underlay_data[plane], cmap='Greys', origin='upper', extent=[0, 1, 0, 1])
+            # ax[plane].imshow(overlay_data[plane], cmap=mcmap, alpha=0.5, origin='upper', extent=[0, 1, 0, 1])
+            # ax[plane].axis('off')
+            # ax[plane].grid(False)
+            # DEBUGGING
+
+            # slicer = OrthoSlicer3D()
+
+            # ax0[plane].imshow(underlay_data[plane], cmap='gray', origin='lower', extent=[0, 1, 0, 1])
+            # ax0[plane].imshow(overlay_data[plane], cmap=mcmap, alpha=0.5, origin='lower', extent=[0, 1, 0, 1], **imshow_args)
+            # ax0[plane].axis('off')
+            # ax0[plane].grid(False)
+
+            # ax1[plane].imshow(underlay_data[plane], cmap='gray', origin='lower', extent=[0, 1, 0, 1])
+            # ax1[plane].axis('off')
+            # ax1[plane].grid(False)
+
+            # ax2[plane].imshow(overlay_data[plane], cmap=mcmap, alpha=0.5, origin='lower', extent=[0, 1, 0, 1], **imshow_args)
+            # ax2[plane].axis('off')
+            # ax2[plane].grid(False)
+
+            # plot_map(
+            #     data,
+            #     xyz_affine(nifti),
+            #     anat=anat.get_data(),
+            #     anat_affine=xyz_affine(anat),
+            #     black_bg=True,
+            #     threshold=thr,
+            #     cut_coords=coord_transform(
+            #         max_idx[0], max_idx[1], max_idx[2], xyz_affine(nifti)
+            #     ),
+            #     annotate=False,
+            #     axes=ax[i],
+            #     cmap=mcmap,
+            #     draw_cross=False,
+            #     **imshow_args,
+            # )
+            # text(
+            #     0.0,
+            #     0.95,
+            #     str(i),
+            #     transform=ax.transAxes,
+            #     horizontalalignment="center",
+            #     color=(1, 1, 1),
+            # )
 
     # save results
     if save_dir is None:
@@ -179,13 +295,13 @@ def process_image(
         save_dir = f"{dir}/"
 
     if "png" in ext:
-        savefig(
+        fig.savefig(
             f"{save_dir}{output}.png",
             facecolor=(0, 0, 0),
             dpi=dpi,
         )
     if "svg" in ext:
-        savefig(
+        fig.savefig(
             f"{save_dir}{output}.svg",
             facecolor=(0, 0, 0),
         )
@@ -207,7 +323,8 @@ def process_image(
         print("Done!")
 
 
-def parse():
+# def parse():
+if __name__ == "__main__":
     import warnings
     import argparse
 
@@ -268,7 +385,8 @@ def parse():
     parser.add_argument(
         "--dpi",
         type=int,
-        default=300,
+        # default=300,
+        default=100,
         help="PNG output dpi (default: 300)",
     )
 
