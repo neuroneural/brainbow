@@ -85,13 +85,11 @@ def process_image(
                 black_bg=True,
                 threshold=thr,
                 cut_coords=cut_coords,
-                annotate=False,
                 axes=ax,
-                draw_cross=False,
                 **imshow_args,
             )
 
-            slicer.annotate(size=8)
+            slicer.annotate(size=8, s=f"{i+1}")
 
     # save results
     if save_dir is None:

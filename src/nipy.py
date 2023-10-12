@@ -20,8 +20,6 @@ def plot_map(
     axes=None,
     title=None,
     threshold=None,
-    annotate=True,
-    draw_cross=True,
     black_bg=False,
     **imshow_kwargs,
 ):
@@ -68,23 +66,6 @@ def plot_map(
         values below the threshold are plotted as transparent. If
         auto is given, the threshold is determined magically by
         analysis of the map.
-    annotate: boolean, optional
-        If annotate is True, positions and left/right annotation
-        are added to the plot.
-    draw_cross: boolean, optional
-        If draw_cross is True, a cross is drawn on the plot to
-        indicate the cut plosition.
-    do3d: {True, False or 'interactive'}, optional
-        If True, Mayavi is used to plot a 3D view of the
-        map in addition to the slicing. If 'interactive', the
-        3D visualization is displayed in an additional interactive
-        window.
-    threshold_3d:
-        The threshold to use for the 3D view (if any). Defaults to
-        the same threshold as that used for the 2D view.
-    view_3d: tuple,
-        The view used to take the screenshot: azimuth, elevation,
-        distance and focalpoint, see the docstring of mlab.view.
     black_bg: boolean, optional
         If True, the background of the image is set to be black. If
         you whish to save figures with a black background, you
@@ -106,9 +87,6 @@ def plot_map(
     """
 
     slicer = CustomSlicer.init_with_figure(
-        data=map,
-        affine=affine,
-        threshold=threshold,
         cut_coords=cut_coords,
         figure=figure,
         axes=axes,
@@ -118,9 +96,7 @@ def plot_map(
     if threshold:
         map = np.ma.masked_inside(map, -threshold, threshold, copy=False)
 
-    _plot_anat(
-        slicer, anat, anat_affine, title=title, annotate=annotate, draw_cross=draw_cross
-    )
+    _plot_anat(slicer, anat, anat_affine, title=title)
 
     slicer.plot_map(map, affine, **imshow_kwargs)
     return slicer
@@ -131,8 +107,6 @@ def _plot_anat(
     anat,
     anat_affine,
     title=None,
-    annotate=True,
-    draw_cross=True,
     dim=False,
     cmap="gray",
     **imshow_kwargs,
@@ -160,11 +134,6 @@ def _plot_anat(
         slicer.plot_map(
             anat, anat_affine, cmap=cmap, vmin=vmin, vmax=vmax, **imshow_kwargs
         )
-
-        if annotate:
-            slicer.annotate()
-        if draw_cross:
-            slicer.draw_cross()
 
     if black_bg:
         # To have a black background in PDF, we need to create a
@@ -262,9 +231,6 @@ class CustomSlicer(object):
     @classmethod
     def init_with_figure(
         cls,
-        data=None,
-        affine=None,
-        threshold=None,
         cut_coords=None,
         figure=None,
         axes=None,
@@ -409,8 +375,8 @@ class CustomSlicer(object):
                 continue
             cut_ax.draw_cut(cut, data_bounds, bounding_box, type=type, **kwargs)
 
-    def annotate(self, left_right=True, positions=True, size=12, **kwargs):
-        """Add annotations to the plot.
+    def annotate(self, size=12, **kwargs):
+        """Add annotation to the plot.
 
         Parameters
         ----------
@@ -434,13 +400,8 @@ class CustomSlicer(object):
                 kwargs["color"] = "k"
 
         bg_color = "k" if self._black_bg else "w"
-        if left_right:
-            for cut_ax in self.axes.values():
-                cut_ax.draw_left_right(size=size, bg_color=bg_color, **kwargs)
 
-        if positions:
-            for cut_ax in self.axes.values():
-                cut_ax.draw_position(size=size, bg_color=bg_color, **kwargs)
+        self.axes["y"].add_annotation(size=size, bg_color=bg_color, **kwargs)
 
 
 class CutAxes(object):
@@ -475,12 +436,6 @@ class CutAxes(object):
         """
         coords = [0, 0, 0]
         coords["xyz".index(self.direction)] = self.coord
-        # x_map, y_map, z_map = [
-        #     int(np.round(c))
-        #     for c in coord_transform(
-        #         coords[0], coords[1], coords[2], np.linalg.inv(affine)
-        #     )
-        # ]
         x_map, y_map, z_map = [
             int(np.round(c))
             for c in apply_affine(np.linalg.inv(affine), np.array(coords))
@@ -528,43 +483,13 @@ class CutAxes(object):
         ymin = min(ymins.min(), ymaxs.min())
         return xmin, xmax, ymin, ymax
 
-    def draw_left_right(self, size, bg_color, **kwargs):
-        if self.direction == "x":
-            return
-        ax = self.ax
-        ax.text(
-            0.1,
-            0.95,
-            "L",
-            transform=ax.transAxes,
+    def add_annotation(self, size, bg_color, **kwargs):
+        self.ax.text(
+            0.0,
+            1.0,
+            transform=self.ax.transAxes,
             horizontalalignment="left",
             verticalalignment="top",
-            size=size,
-            bbox=dict(boxstyle="square,pad=0", ec=bg_color, fc=bg_color, alpha=1),
-            **kwargs,
-        )
-
-        ax.text(
-            0.9,
-            0.95,
-            "R",
-            transform=ax.transAxes,
-            horizontalalignment="right",
-            verticalalignment="top",
-            size=size,
-            bbox=dict(boxstyle="square,pad=0", ec=bg_color, fc=bg_color, alpha=1),
-            **kwargs,
-        )
-
-    def draw_position(self, size, bg_color, **kwargs):
-        ax = self.ax
-        ax.text(
-            0,
-            0,
-            "%s=%i" % (self.direction, self.coord),
-            transform=ax.transAxes,
-            horizontalalignment="left",
-            verticalalignment="bottom",
             size=size,
             bbox=dict(boxstyle="square,pad=0", ec=bg_color, fc=bg_color, alpha=1),
             **kwargs,
