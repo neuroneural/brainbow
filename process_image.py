@@ -2,14 +2,11 @@ import sys
 
 import json
 import numpy as np
-import nibabel as nib
 
 from tqdm import tqdm
 
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-
-# from nipy.labs.viz import plot_map
 
 from nibabel.affines import apply_affine
 
@@ -25,21 +22,24 @@ def process_image(
     SGN,
     output: str = None,
     save_dir: str = None,
-    thr: float = 2.0,
-    normalize: bool = False,
+    thr: float = 0.3,
+    normalize: bool = True,
     extend: bool = False,
-    dpi: int = 300,
+    dpi: int = 150,
     annotate: bool = True,
+    components: list = None,
     iscale: int = 3,
 ):
-    print(normalize)
     # create output directory (if needed) and define output extension
     output, ext = process_output_path(output, save_dir)
 
     print("Loading and processing the nifti files")
 
     nifti_data, nifti_affine, anat_data, anat_affine = load_images(
-        NIFTI, ANAT, normalize=normalize
+        NIFTI,
+        ANAT,
+        normalize=normalize,
+        components=components,
     )
 
     # derive a few things for plotting
@@ -50,6 +50,7 @@ def process_image(
 
     print("Plotting components:")
 
+    # create figure and grid
     if extend:
         fig = plt.figure(figsize=(iscale * n_cols, iscale * n_rows), facecolor="black")
     else:
@@ -75,7 +76,7 @@ def process_image(
         data[np.sign(data) == DSGN[SGN]] = 0
 
         # plot component
-        if max(abs(data.flatten())) > thr or normalize:
+        if max(abs(data.flatten())) > thr:
             if SGN == "neg":
                 max_idx = np.unravel_index(np.argmin(data), data.shape)
             else:
@@ -98,7 +99,10 @@ def process_image(
                 **imshow_args,
             )
             if annotate:
-                slicer.annotate(size=8, s=f"{i+1}")
+                if components is not None:
+                    slicer.annotate(size=8, s=f"{components[i]}")
+                else:
+                    slicer.annotate(size=8, s=f"{i+1}")
 
             if extend:
                 plot_map(
@@ -205,7 +209,7 @@ if __name__ == "__main__":
         default="both",
         help="Show only positive components (pos), \
             only negative components (neg), \
-                or both (both) (default: both)",
+                or both (both)",
     )
     parser.add_argument(
         "-o",
@@ -227,12 +231,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--thr",
         type=float,
-        default=0.1,
-        help="Threshold value for component significance (default: 2.0)",
+        default=0.3,
+        help="Threshold value for component significance",
     )
     parser.add_argument(
         "--norm",
-        default=False,
+        default=True,
         action=argparse.BooleanOptionalAction,
         help="Whether the nifti data should be normalized. May produce a better looking picture, \
             but not recommended for QA.",
@@ -242,20 +246,28 @@ if __name__ == "__main__":
         default=False,
         action=argparse.BooleanOptionalAction,
         help="If passed, in addition to overlay+underlay picture each component \
-            will also have a row with separate overlay+underlay",
+            will also have rows with only underlay/overlay",
     )
     parser.add_argument(
         "--dpi",
         type=int,
-        # default=300,
-        default=100,
-        help="PNG output dpi (default: 300)",
+        default=150,
+        help="PNG output dpi)",
     )
     parser.add_argument(
         "--annotate",
         default=True,
         action=argparse.BooleanOptionalAction,
-        help="Enumerate components in the output figure.",
+        help="Enumerate components in the output figure",
+    )
+    parser.add_argument(
+        "-c",
+        "--components",
+        nargs="*",
+        type=int,
+        help="Allows to provide a list of components to plot (e.g., '42 4 2'). \
+                            Enumeration starts with 1.",
+        default=None,
     )
 
     if len(sys.argv) == 1:
@@ -275,4 +287,5 @@ if __name__ == "__main__":
         extend=args.extend,
         dpi=args.dpi,
         annotate=args.annotate,
+        components=args.components,
     )
