@@ -32,6 +32,7 @@ def process_image(
     annotate: bool = True,
     iscale: int = 3,
 ):
+    print(normalize)
     # create output directory (if needed) and define output extension
     output, ext = process_output_path(output, save_dir)
 
@@ -226,7 +227,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--thr",
         type=float,
-        default=2.0,
+        default=0.1,
         help="Threshold value for component significance (default: 2.0)",
     )
     parser.add_argument(
