@@ -175,8 +175,7 @@ def process_image(
         print("Done!")
 
 
-# def parse():
-if __name__ == "__main__":
+def parse():
     import warnings
     import argparse
 
