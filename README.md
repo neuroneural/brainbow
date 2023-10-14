@@ -59,7 +59,7 @@ brainbow --nifti nifti.nii --anat anat.nii
     - default - `False`
 - `--dpi`
     - dpi for png output
-    - default - `300`
+    - default - `150`
 - `--annotate/--no-annotate`
     - If `True`, enumerate components in the output figure
     - default - `True`
