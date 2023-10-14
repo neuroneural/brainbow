@@ -1,96 +1,19 @@
-import os
 import sys
 
 import json
-
 import numpy as np
 
-# nipy relies on the depricated (as of numpy>1.20) aliases for basic objects
-# here's fix ofr it
-np.float = float
+from tqdm import tqdm
 
-from nipy import load_image
-from nipy.core.api import xyz_affine
-from nipy.labs.viz import plot_map, coord_transform
-import matplotlib
-from pylab import savefig, subplot, subplots_adjust, figure, rc, text
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 
+from nibabel.affines import apply_affine
 
-# colormap processing
-cdict = {
-    "red": (
-        (0.0, 0.0, 0.0),
-        (0.25, 0.2, 0.2),
-        (0.45, 0.0, 0.0),
-        (0.5, 0.5, 0.5),
-        (0.55, 0.0, 0.0),
-        (0.75, 0.8, 0.8),
-        (1.0, 1.0, 1.0),
-    ),
-    "green": (
-        (0.0, 0.0, 1.0),
-        (0.25, 0.0, 0.0),
-        (0.45, 0.0, 0.0),
-        (0.5, 0.5, 0.5),
-        (0.55, 0.0, 0.0),
-        (0.75, 0.0, 0.0),
-        (1.0, 1.0, 1.0),
-    ),
-    "blue": (
-        (0.0, 0.0, 1.0),
-        (0.25, 0.8, 0.8),
-        (0.45, 0.0, 0.0),
-        (0.5, 0.5, 0.5),
-        (0.55, 0.0, 0.0),
-        (0.75, 0.0, 0.0),
-        (1.0, 0.0, 0.0),
-    ),
-}
-ndict = {
-    "red": ((0.0, 0.0, 0.0), (0.5, 0.2, 0.2), (0.9, 0.0, 0.0), (1.0, 0.5, 0.5)),
-    "green": ((0.0, 0.0, 1.0), (0.5, 0.0, 0.0), (0.9, 0.0, 0.0), (1.0, 0.5, 0.5)),
-    "blue": ((0.0, 0.0, 1.0), (0.5, 0.8, 0.8), (0.9, 0.0, 0.0), (1.0, 0.5, 0.5)),
-}
-pdict = {
-    "red": ((0.0, 0.5, 0.5), (0.1, 0.0, 0.0), (0.5, 0.8, 0.8), (1.0, 1.0, 1.0)),
-    "green": ((0.0, 0.5, 0.5), (0.1, 0.0, 0.0), (0.5, 0.0, 0.0), (1.0, 1.0, 1.0)),
-    "blue": ((0.0, 0.5, 0.5), (0.1, 0.0, 0.0), (0.5, 0.0, 0.0), (1.0, 0.0, 0.0)),
-}
-
-both_cmap = matplotlib.colors.LinearSegmentedColormap("brain_combined", cdict, 256)
-pos_cmap = matplotlib.colors.LinearSegmentedColormap("brain_above", pdict, 256)
-neg_cmap = matplotlib.colors.LinearSegmentedColormap("brain_below", ndict, 256)
-
-cmaps = {
-    "both": both_cmap,
-    "neg": neg_cmap,
-    "pos": pos_cmap,
-}
-
-# dict of signs for filtering negative/positive components ("both" is here for compatibility)
-# it is intentionally inverted
-DSGN = {
-    "both": 0.0,
-    "neg": 1.0,
-    "pos": -1.0,
-}
-
-
-def process_output(output: str):
-    ext = ["png", "svg"]
-    if output is None:
-        output = "brainbow-output"
-
-    output_split = output.split(".")
-    if len(output_split) > 1:
-        if output_split[-1] == "png":
-            output = ".".join(output_split[0 : len(output_split) - 1])
-            ext = ["png"]
-        elif output_split[-1] == "svg":
-            output = ".".join(output_split[0 : len(output_split) - 1])
-            ext = ["svg"]
-
-    return output, ext
+from src.colormaps import CMAPS, DSGN
+from src.data_load import load_images
+from src.nipy import plot_map
+from src.utils import process_output_path
 
 
 def process_image(
@@ -99,77 +22,122 @@ def process_image(
     SGN,
     output: str = None,
     save_dir: str = None,
-    thr: float = 2.0,
-    dpi: int = 300,
+    thr: float = 0.3,
+    normalize: bool = True,
+    extend: bool = False,
+    dpi: int = 150,
+    annotate: bool = True,
+    components: list = None,
     iscale: int = 3,
 ):
+    # create output directory (if needed) and define output extension
+    output, ext = process_output_path(output, save_dir)
 
-    # create output directory
-    if save_dir is not None:
-        if not save_dir.startswith("/"):
-            if not save_dir.startswith("~"):
-                save_dir = f"./{save_dir}"
-        os.makedirs(f"{save_dir}", exist_ok=True)
+    print("Loading and processing the nifti files")
 
-    # process output name
-    output, ext = process_output(output)
+    nifti_data, nifti_affine, anat_data, anat_affine = load_images(
+        NIFTI,
+        ANAT,
+        normalize=normalize,
+        components=components,
+    )
 
-    print("Opening nifti files")
-    nifti = load_image(NIFTI)
-    anat = load_image(ANAT)
+    # derive a few things for plotting
+    mcmap = CMAPS[SGN]  # get colormap
+    n_features = nifti_data.shape[-1]
+    n_cols = max([1, round(np.sqrt(n_features / 3))])
+    n_rows = np.ceil(n_features / n_cols).astype(int)
 
-    imax = nifti.get_data().max()
-    imin = nifti.get_data().min()
+    print("Plotting components:")
 
-    imshow_args = {"vmax": imax, "vmin": imin}
+    # create figure and grid
+    if extend:
+        fig = plt.figure(figsize=(iscale * n_cols, iscale * n_rows), facecolor="black")
+    else:
+        fig = plt.figure(
+            figsize=(iscale * n_cols, iscale * n_rows / 3), facecolor="black"
+        )
 
-    mcmap = cmaps[SGN]
+    gs = gridspec.GridSpec(ncols=n_cols, nrows=n_rows)
+    fig.subplots_adjust(
+        left=0.01, right=0.99, bottom=0.01, top=0.99, wspace=0.1, hspace=0
+    )
 
-    num_features = nifti.shape[-1]
-    # number of rows
-    y = max([1, int(round(np.sqrt(num_features / 3)))])
-    # number of columns
-    x = int(np.ceil(num_features / y) + 1)
+    # plot components
+    for i in tqdm(range(n_features)):
+        if extend:
+            subgs = gridspec.GridSpecFromSubplotSpec(3, 1, subplot_spec=gs[i])
+            ax = [plt.subplot(subgs[i]) for i in range(3)]
+        else:
+            ax = [plt.subplot(gs[i])]  # it is a list for compatibility reasons
 
-    font = {"size": 8}
-    rc("font", **font)
-
-    print("Plotting figures")
-    figure(figsize=[iscale * y, iscale * x / 3])
-    subplots_adjust(left=0.01, right=0.99, bottom=0.01, top=0.99, wspace=0.1, hspace=0)
-
-    for i in range(0, num_features):
         # load the ICA component and filter it according to SGN
-        data = nifti.get_data()[:, :, :, i]
+        data = nifti_data[:, :, :, i]
         data[np.sign(data) == DSGN[SGN]] = 0
 
         # plot component
-        if max(abs(data.flatten())) > thr + 0.2:
-            ax = subplot(x, y, i + 1)
-            max_idx = np.unravel_index(np.argmax(data), data.shape)
-            plot_map(
-                data,
-                xyz_affine(nifti),
-                anat=anat.get_data(),
-                anat_affine=xyz_affine(anat),
+        if max(abs(data.flatten())) > thr:
+            if SGN == "neg":
+                max_idx = np.unravel_index(np.argmin(data), data.shape)
+            else:
+                max_idx = np.unravel_index(np.argmax(data), data.shape)
+            cut_coords = apply_affine(nifti_affine, max_idx)
+
+            vmax = data.max()
+            vmin = data.min()
+            imshow_args = {"vmax": vmax, "vmin": vmin, "cmap": mcmap}
+
+            slicer = plot_map(
+                map=data,
+                affine=nifti_affine,
+                anat=anat_data,
+                anat_affine=anat_affine,
                 black_bg=True,
                 threshold=thr,
-                cut_coords=coord_transform(
-                    max_idx[0], max_idx[1], max_idx[2], xyz_affine(nifti)
-                ),
-                annotate=False,
-                axes=ax,
-                cmap=mcmap,
-                draw_cross=False,
+                cut_coords=cut_coords,
+                axes=ax[0],
                 **imshow_args,
             )
-            text(
-                0.0,
-                0.95,
-                str(i),
-                transform=ax.transAxes,
-                horizontalalignment="center",
-                color=(1, 1, 1),
+            if annotate:
+                if components is not None:
+                    slicer.annotate(size=8, s=f"{components[i]}")
+                else:
+                    slicer.annotate(size=8, s=f"{i+1}")
+
+            if extend:
+                plot_map(
+                    map=None,
+                    affine=None,
+                    anat=anat_data,
+                    anat_affine=anat_affine,
+                    black_bg=True,
+                    threshold=thr,
+                    cut_coords=cut_coords,
+                    axes=ax[1],
+                    **imshow_args,
+                )
+                plot_map(
+                    map=data,
+                    affine=nifti_affine,
+                    anat=None,
+                    anat_affine=None,
+                    black_bg=True,
+                    threshold=thr,
+                    cut_coords=cut_coords,
+                    axes=ax[2],
+                    **imshow_args,
+                )
+        else:
+            for axx in ax:
+                axx.set_facecolor("black")
+            ax[0].text(
+                0.5,
+                0.5,
+                s="Below threshold",
+                color="white",
+                ha="center",
+                va="center",
+                size=14,
             )
 
     # save results
@@ -179,13 +147,13 @@ def process_image(
         save_dir = f"{dir}/"
 
     if "png" in ext:
-        savefig(
+        fig.savefig(
             f"{save_dir}{output}.png",
             facecolor=(0, 0, 0),
             dpi=dpi,
         )
     if "svg" in ext:
-        savefig(
+        fig.savefig(
             f"{save_dir}{output}.svg",
             facecolor=(0, 0, 0),
         )
@@ -240,7 +208,7 @@ def parse():
         default="both",
         help="Show only positive components (pos), \
             only negative components (neg), \
-                or both (both) (default: both)",
+                or both (both)",
     )
     parser.add_argument(
         "-o",
@@ -262,14 +230,43 @@ def parse():
     parser.add_argument(
         "--thr",
         type=float,
-        default=2.0,
-        help="Threshold value for component significance (default: 2.0)",
+        default=0.3,
+        help="Threshold value for component significance",
+    )
+    parser.add_argument(
+        "--norm",
+        default=True,
+        action=argparse.BooleanOptionalAction,
+        help="Whether the nifti data should be normalized. May produce a better looking picture, \
+            but not recommended for QA.",
+    )
+    parser.add_argument(
+        "--extend",
+        default=False,
+        action=argparse.BooleanOptionalAction,
+        help="If passed, in addition to overlay+underlay picture each component \
+            will also have rows with only underlay/overlay",
     )
     parser.add_argument(
         "--dpi",
         type=int,
-        default=300,
-        help="PNG output dpi (default: 300)",
+        default=150,
+        help="PNG output dpi)",
+    )
+    parser.add_argument(
+        "--annotate",
+        default=True,
+        action=argparse.BooleanOptionalAction,
+        help="Enumerate components in the output figure",
+    )
+    parser.add_argument(
+        "-c",
+        "--components",
+        nargs="*",
+        type=int,
+        help="Allows to provide a list of components to plot (e.g., '42 4 2'). \
+                            Enumeration starts with 1.",
+        default=None,
     )
 
     if len(sys.argv) == 1:
@@ -285,5 +282,9 @@ def parse():
         output=args.output,
         save_dir=args.dir,
         thr=args.thr,
+        normalize=args.norm,
+        extend=args.extend,
         dpi=args.dpi,
+        annotate=args.annotate,
+        components=args.components,
     )
