@@ -78,13 +78,14 @@ def process_image(
         # plot component
         if np.max(np.abs(data)) > thr:
             if SGN == "neg":
-                max_idx = np.unravel_index(np.argmin(data), data.shape)
+                cut_idx = np.unravel_index(np.argmin(data), data.shape)
             else:
-                max_idx = np.unravel_index(np.argmax(data), data.shape)
-            cut_coords = apply_affine(nifti_affine, max_idx)
+                cut_idx = np.unravel_index(np.argmax(data), data.shape)
+            cut_coords = apply_affine(nifti_affine, cut_idx)
 
             vmax = data.max()
-            imshow_args = {"vmax": vmax, "vmin": -vmax, "cmap": mcmap}
+            vmin = -vmax if SGN == "both" else data.min()
+            imshow_args = {"vmax": vmax, "vmin": vmin, "cmap": mcmap}
 
             slicer = plot_map(
                 map=data,
