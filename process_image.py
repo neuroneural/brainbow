@@ -184,6 +184,7 @@ def parse():
     parser = argparse.ArgumentParser(
         prog="brainbow",
         description="A tool for brain parcellation visualization",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
     parser.add_argument(
@@ -222,7 +223,7 @@ def parse():
     parser.add_argument(
         "--dir",
         type=str,
-        help="(optional) Name for the results directory (can be nested).\
+        help="Name for the results directory (can be nested).\
             If none is provided, output will be placed in the directory where brainbow is executed\n\
                 If some is provided, the image setup.json containing the image processing info \
                     will be created in this directory",
@@ -251,7 +252,7 @@ def parse():
         "--dpi",
         type=int,
         default=150,
-        help="PNG output dpi)",
+        help="PNG output dpi",
     )
     parser.add_argument(
         "--annotate",
@@ -288,3 +289,7 @@ def parse():
         annotate=args.annotate,
         components=args.components,
     )
+
+
+if __name__ == "__main__":
+    parse()
