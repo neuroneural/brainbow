@@ -22,7 +22,7 @@ def process_image(
     SGN,
     output: str = None,
     save_dir: str = None,
-    thr: float = 0.3,
+    thr: float = 0.2,
     normalize: bool = True,
     extend: bool = False,
     dpi: int = 150,
@@ -38,6 +38,7 @@ def process_image(
     nifti_data, nifti_affine, anat_data, anat_affine = load_images(
         NIFTI,
         ANAT,
+        thr,
         normalize=normalize,
         components=components,
     )
@@ -231,7 +232,7 @@ def parse():
     parser.add_argument(
         "--thr",
         type=float,
-        default=0.3,
+        default=0.2,
         help="Threshold value for component significance",
     )
     parser.add_argument(
