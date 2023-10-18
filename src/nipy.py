@@ -96,8 +96,6 @@ def plot_map(
     if anat is not None:
         _plot_anat(slicer, anat, anat_affine, title=title)
     if map is not None:
-        if threshold is not None:
-            map = np.ma.masked_inside(map, -threshold, threshold, copy=False)
         slicer.plot_map(map, affine, **imshow_kwargs)
 
     return slicer

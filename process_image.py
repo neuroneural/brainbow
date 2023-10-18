@@ -22,7 +22,7 @@ def process_image(
     SGN,
     output: str = None,
     save_dir: str = None,
-    thr: float = 0.3,
+    thr: float = 0.2,
     normalize: bool = True,
     extend: bool = False,
     dpi: int = 150,
@@ -38,6 +38,7 @@ def process_image(
     nifti_data, nifti_affine, anat_data, anat_affine = load_images(
         NIFTI,
         ANAT,
+        thr,
         normalize=normalize,
         components=components,
     )
@@ -76,15 +77,15 @@ def process_image(
         data[np.sign(data) == DSGN[SGN]] = 0
 
         # plot component
-        if max(abs(data.flatten())) > thr:
+        if np.max(np.abs(data)) > thr:
             if SGN == "neg":
-                max_idx = np.unravel_index(np.argmin(data), data.shape)
+                cut_idx = np.unravel_index(np.argmin(data), data.shape)
             else:
-                max_idx = np.unravel_index(np.argmax(data), data.shape)
-            cut_coords = apply_affine(nifti_affine, max_idx)
+                cut_idx = np.unravel_index(np.argmax(data), data.shape)
+            cut_coords = apply_affine(nifti_affine, cut_idx)
 
             vmax = data.max()
-            vmin = data.min()
+            vmin = -vmax if SGN == "both" else data.min()
             imshow_args = {"vmax": vmax, "vmin": vmin, "cmap": mcmap}
 
             slicer = plot_map(
@@ -184,6 +185,7 @@ def parse():
     parser = argparse.ArgumentParser(
         prog="brainbow",
         description="A tool for brain parcellation visualization",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
     parser.add_argument(
@@ -222,7 +224,7 @@ def parse():
     parser.add_argument(
         "--dir",
         type=str,
-        help="(optional) Name for the results directory (can be nested).\
+        help="Name for the results directory (can be nested).\
             If none is provided, output will be placed in the directory where brainbow is executed\n\
                 If some is provided, the image setup.json containing the image processing info \
                     will be created in this directory",
@@ -230,7 +232,7 @@ def parse():
     parser.add_argument(
         "--thr",
         type=float,
-        default=0.3,
+        default=0.2,
         help="Threshold value for component significance",
     )
     parser.add_argument(
@@ -251,7 +253,7 @@ def parse():
         "--dpi",
         type=int,
         default=150,
-        help="PNG output dpi)",
+        help="PNG output dpi",
     )
     parser.add_argument(
         "--annotate",
@@ -288,3 +290,7 @@ def parse():
         annotate=args.annotate,
         components=args.components,
     )
+
+
+if __name__ == "__main__":
+    parse()
