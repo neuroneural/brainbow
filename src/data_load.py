@@ -1,11 +1,7 @@
 import numpy as np
 import nibabel as nib
 
-from scipy.stats import zscore
 from scipy.ndimage import convolve1d
-
-from sklearn import preprocessing
-from nilearn.image import resample_to_img
 
 
 def load_images(
@@ -66,16 +62,13 @@ def load_images(
 
     if normalize:
         # mask the data
-        resampled_mask_img = resample_to_img(anat, nifti)
-        mask = resampled_mask_img.get_fdata()
-        mask_correction_idx = np.where(mask > 0)
-        mask[mask_correction_idx] = zscore(mask[mask_correction_idx]) + 1
-        mask = mask > 0
-        mask_idx = np.where(mask)
+        whole_mask = nifti_data == 0.0
+        combined_mask = np.all(whole_mask, axis=-1)
+        mask_idx = np.where(~combined_mask)
 
         # perform zscore normalization
         S = nifti_data[*mask_idx, :]
-        S = preprocessing.StandardScaler().fit_transform(S)
+        S = S - np.median(S, axis=-1)[:, np.newaxis]
 
         # divide by the max abs value and its sign
         S = (np.diag(1 / np.abs(S.T).max(axis=1)) @ S.T).astype("float32")
@@ -87,8 +80,8 @@ def load_images(
         S = S.T
         nifti_data[*mask_idx, :] = S
 
-        mask = np.stack([mask] * nifti_data.shape[-1], axis=-1)
-        nifti_data = np.ma.masked_array(nifti_data, mask=~mask)
+        combined_mask = np.stack([combined_mask] * nifti_data.shape[-1], axis=-1)
+        nifti_data = np.ma.masked_array(nifti_data, mask=combined_mask)
 
     if thr is not None:
         nifti_data = np.ma.masked_inside(nifti_data, -thr, thr, copy=False)
