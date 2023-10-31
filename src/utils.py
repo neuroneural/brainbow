@@ -6,29 +6,29 @@ import numpy as np
 from scipy import ndimage
 
 
-def process_output_path(output: str, save_dir: str = None):
+def process_output_path(output: str):
+    if output is not None:
+        savedir, filename = os.path.split(output)
+    else:
+        filename = "brainbow-output"
+        savedir = ""
+
     # create output directory
-    if save_dir is not None:
-        if not save_dir.startswith("/"):
-            if not save_dir.startswith("~"):
-                save_dir = f"./{save_dir}"
-        os.makedirs(f"{save_dir}", exist_ok=True)
+    if savedir != "":
+        os.makedirs(f"{savedir}", exist_ok=True)
 
     # process output
     ext = ["png", "svg"]
-    if output is None:
-        output = "brainbow-output"
-
-    output_split = output.split(".")
-    if len(output_split) > 1:
-        if output_split[-1] == "png":
-            output = ".".join(output_split[0 : len(output_split) - 1])
+    filename_split = filename.split(".")
+    if len(filename_split) > 1:
+        if filename_split[-1] == "png":
+            filename = ".".join(filename_split[0:-1])
             ext = ["png"]
-        elif output_split[-1] == "svg":
-            output = ".".join(output_split[0 : len(output_split) - 1])
+        elif filename_split[-1] == "svg":
+            filename = ".".join(filename_split[0:-1])
             ext = ["svg"]
 
-    return output, ext
+    return savedir, filename, ext
 
 
 def is_numlike(obj):
