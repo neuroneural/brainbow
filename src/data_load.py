@@ -19,6 +19,13 @@ def load_images(
     anat_affine = anat.affine
     anat_data = anat.get_fdata()
 
+    # compute mask: used in normalization
+    whole_mask = nifti_data == 0.0
+    if len(whole_mask.shape) == 4:
+        combined_mask = np.all(whole_mask, axis=-1)
+    else:
+        combined_mask = whole_mask
+
     # if nifti is ROI map (3D), transform it to 4D
     if len(nifti_data.shape) == 3:
         nifti_data = nifti_data.astype(int)
@@ -62,15 +69,11 @@ def load_images(
 
     if normalize:
         # mask the data
-        whole_mask = nifti_data == 0.0
-        combined_mask = np.all(whole_mask, axis=-1)
         mask_idx = np.where(~combined_mask)
-
-        # perform zscore normalization
         S = nifti_data[*mask_idx, :]
-        S = S - np.median(S, axis=-1)[:, np.newaxis]
 
-        # divide by the max abs value and its sign
+        S = S - np.median(S, axis=0)
+
         S = (np.diag(1 / np.abs(S.T).max(axis=1)) @ S.T).astype("float32")
 
         midx = np.argmax(np.abs(S), axis=1)

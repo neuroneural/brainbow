@@ -21,7 +21,7 @@ def process_image(
     ANAT,
     SGN,
     output: str = None,
-    save_dir: str = None,
+    rich: bool = False,
     thr: float = 0.2,
     normalize: bool = True,
     extend: bool = False,
@@ -31,7 +31,7 @@ def process_image(
     iscale: int = 3,
 ):
     # create output directory (if needed) and define output extension
-    output, ext = process_output_path(output, save_dir)
+    savedir, output, ext = process_output_path(output)
 
     print("Loading and processing the nifti files")
 
@@ -142,38 +142,35 @@ def process_image(
             )
 
     # save results
-    if save_dir is None:
-        save_dir = ""
-    else:
-        save_dir = f"{dir}/"
+    if savedir != "":
+        savedir += "/"
 
     if "png" in ext:
         fig.savefig(
-            f"{save_dir}{output}.png",
+            f"{savedir}{output}.png",
             facecolor=(0, 0, 0),
             dpi=dpi,
         )
     if "svg" in ext:
         fig.savefig(
-            f"{save_dir}{output}.svg",
+            f"{savedir}{output}.svg",
             facecolor=(0, 0, 0),
         )
 
-    if save_dir != "":
+    if rich:
         setup = {
             "nifti": NIFTI,
             "anat": ANAT,
             "sgn": SGN,
             "thr": thr,
+            "normalize": normalize,
+            "components": components,
             "dpi": dpi,
         }
-        with open(f"{save_dir}setup.json", "w", encoding="utf8") as f:
+        with open(f"{savedir}{output}_config.json", "w", encoding="utf8") as f:
             json.dump(setup, f, indent=4)
 
-    if save_dir != "":
-        print(f"Results can be found at {save_dir}")
-    else:
-        print("Done!")
+    print("Done!")
 
 
 def parse():
@@ -222,12 +219,11 @@ def parse():
                 both extensions will be used.",
     )
     parser.add_argument(
-        "--dir",
-        type=str,
-        help="Name for the results directory (can be nested).\
-            If none is provided, output will be placed in the directory where brainbow is executed\n\
-                If some is provided, the image setup.json containing the image processing info \
-                    will be created in this directory",
+        "--rich",
+        default=False,
+        action=argparse.BooleanOptionalAction,
+        help="If passed, in addition to the basic output a config file \
+            and a file containing cut coordinates is generated",
     )
     parser.add_argument(
         "--thr",
@@ -282,7 +278,7 @@ def parse():
         ANAT=args.anat,
         SGN=args.sign,
         output=args.output,
-        save_dir=args.dir,
+        rich=args.rich,
         thr=args.thr,
         normalize=args.norm,
         extend=args.extend,
