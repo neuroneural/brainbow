@@ -65,6 +65,7 @@ def process_image(
     )
 
     # plot components
+    cuts_array = np.zeros((n_features, 3))
     for i in tqdm(range(n_features)):
         if extend:
             subgs = gridspec.GridSpecFromSubplotSpec(3, 1, subplot_spec=gs[i])
@@ -83,6 +84,7 @@ def process_image(
             else:
                 cut_idx = np.unravel_index(np.argmax(data), data.shape)
             cut_coords = apply_affine(nifti_affine, cut_idx)
+            cuts_array[i] = cut_coords
 
             vmax = data.max()
             vmin = -vmax if SGN == "both" else data.min()
@@ -159,6 +161,7 @@ def process_image(
         )
 
     if rich:
+        # save config
         setup = {
             "nifti": NIFTI,
             "anat": ANAT,
@@ -170,6 +173,9 @@ def process_image(
         }
         with open(f"{savedir}{output}_config.json", "w", encoding="utf8") as f:
             json.dump(setup, f, indent=4)
+
+        # save cut coordinates
+        np.savetxt(f"{savedir}{output}_cuts.txt", cuts_array, delimiter=",")
 
     print("Done!")
 
@@ -214,8 +220,8 @@ def parse():
         "-o",
         "--output",
         type=str,
-        default="brainbow-output",
-        help="Name of the output file(s) (default: brainbow-output.png/svg).\
+        default="brainbow_output",
+        help="Name of the output file(s) (default: brainbow_output.png/svg).\
             You can specify the exact extension (png or svg). If none is provided, \
                 both extensions will be used.",
     )
