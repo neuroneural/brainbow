@@ -26,7 +26,7 @@ def process_image(
     normalize: bool = True,
     extend: bool = False,
     dpi: int = 150,
-    annotate: bool = True,
+    annotate: str = "minimal",
     components: list = None,
     iscale: int = 3,
 ):
@@ -99,11 +99,12 @@ def process_image(
                 axes=ax[0],
                 **imshow_args,
             )
-            if annotate:
+            # annotate
+            if annotate != "none":
                 if components is not None:
-                    slicer.annotate(size=8, s=f"{components[i]}")
+                    slicer.annotate(size=8, text=f"{components[i]}", mode=annotate)
                 else:
-                    slicer.annotate(size=8, s=f"{i+1}")
+                    slicer.annotate(size=8, text=f"{i+1}", mode=annotate)
 
             if extend:
                 plot_map(
@@ -253,9 +254,12 @@ def parse():
     )
     parser.add_argument(
         "--annotate",
-        default=True,
-        action=argparse.BooleanOptionalAction,
-        help="Enumerate components in the output figure",
+        type=str,
+        choices=["none", "minimal", "full"],
+        default="minimal",
+        help="Show components indices (minimal), \
+            components indices and cut coordinates (full), \
+                or nothing (none) on the output figure",
     )
     parser.add_argument(
         "-c",
