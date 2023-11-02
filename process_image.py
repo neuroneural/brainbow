@@ -1,4 +1,5 @@
 import sys
+import os
 
 import json
 import numpy as np
@@ -28,8 +29,31 @@ def process_image(
     dpi: int = 150,
     annotate: str = "minimal",
     components: list = None,
+    cut: str = None,
     iscale: int = 3,
 ):
+    # check if provided cut is valid
+    if cut is not None:
+        if os.path.isfile(cut):
+            try:
+                cut = np.loadtxt(cut, delimiter=",", dtype=float)
+                assert (
+                    cut.shape[1] == 3
+                ), f"Cut coordinates in the provided file have {cut.shape[1]} components, expected 3"
+            except ValueError as e:
+                raise ValueError(
+                    f"Error while loading cut coordinates from '{cut}'. Check validity."
+                ) from e
+            except Exception as e:
+                raise e
+        else:
+            cut = cut.split(",")
+            for i, coord in enumerate(cut):
+                cut[i] = float(coord)
+            assert (
+                len(cut) == 3
+            ), f"Provided coordinates have {len(cut)} components, expected 3"
+
     # create output directory (if needed) and define output extension
     savedir, output, ext = process_output_path(output)
 
@@ -48,6 +72,17 @@ def process_image(
     n_features = nifti_data.shape[-1]
     n_cols = max([1, round(np.sqrt(n_features / 3))])
     n_rows = np.ceil(n_features / n_cols).astype(int)
+
+    if cut is not None and isinstance(cut, np.ndarray):
+        assert (
+            cut.shape[0] >= n_features
+        ), f"The csv with cut coordinates has less entries ({cut.shape[0]}) \
+            than the number of components to plot ({n_features})"
+        if cut.shape[0] > n_features:
+            print(
+                f"Be alert, the csv with cut coordinates has more entries ({cut.shape[0]}) \
+            than the number of components to plot ({n_features})"
+            )
 
     print("Plotting components:")
 
@@ -79,11 +114,17 @@ def process_image(
 
         # plot component
         if np.max(np.abs(data)) > thr:
-            if SGN == "neg":
-                cut_idx = np.unravel_index(np.argmin(data), data.shape)
+            if cut is None:
+                if SGN == "neg":
+                    cut_idx = np.unravel_index(np.argmin(data), data.shape)
+                else:
+                    cut_idx = np.unravel_index(np.argmax(data), data.shape)
+                cut_coords = apply_affine(nifti_affine, cut_idx)
+            elif isinstance(cut, list):
+                cut_coords = np.array(cut)
             else:
-                cut_idx = np.unravel_index(np.argmax(data), data.shape)
-            cut_coords = apply_affine(nifti_affine, cut_idx)
+                cut_coords = np.array(cut[i])
+
             cuts_array[i] = cut_coords
 
             vmax = data.max()
@@ -175,7 +216,7 @@ def process_image(
             json.dump(setup, f, indent=4)
 
         # save cut coordinates
-        np.savetxt(f"{savedir}{output}_cuts.txt", cuts_array, delimiter=",")
+        np.savetxt(f"{savedir}{output}_cuts.csv", cuts_array, delimiter=",")
 
     print("Done!")
 
@@ -276,6 +317,17 @@ def parse():
                             Enumeration starts with 1.",
         default=None,
     )
+    parser.add_argument(
+        "--cut",
+        type=str,
+        help="Allows to manually set cut coordinates. \
+            Needs to be either a path to scv file (like the one created by '--rich' flag), \
+                or a comma separated list of cooridnates, which will be used for all components.\
+                    Coordinates order should be RAS+. \
+                        Be careful when using with '--components' flag: brainbow assumes\
+                            that csv cut coordinates correspond to the provided components.",
+        default=None,
+    )
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -295,6 +347,7 @@ def parse():
         dpi=args.dpi,
         annotate=args.annotate,
         components=args.components,
+        cut=args.cut,
     )
 
 
