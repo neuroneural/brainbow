@@ -238,7 +238,7 @@ def parse():
         "--nifti",
         type=str,
         required=True,
-        help="Path to the 4D nifti to convert to images",
+        help="Path to the 4D nifti of ICA components/3D nifti of ROI components to convert to images",
     )
     parser.add_argument(
         "-a",
