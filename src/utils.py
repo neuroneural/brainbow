@@ -9,8 +9,10 @@ from scipy import ndimage
 def process_output_path(output: str):
     if output is not None:
         savedir, filename = os.path.split(output)
+        if filename == "":
+            filename = "brainbow_output"
     else:
-        filename = "brainbow-output"
+        filename = "brainbow_output"
         savedir = ""
 
     # create output directory

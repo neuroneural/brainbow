@@ -1,4 +1,5 @@
 import sys
+import os
 
 import json
 import numpy as np
@@ -26,10 +27,33 @@ def process_image(
     normalize: bool = True,
     extend: bool = False,
     dpi: int = 150,
-    annotate: bool = True,
+    annotate: str = "minimal",
     components: list = None,
+    cut: str = None,
     iscale: int = 3,
 ):
+    # check if provided cut is valid
+    if cut is not None:
+        if os.path.isfile(cut):
+            try:
+                cut = np.loadtxt(cut, delimiter=",", dtype=float)
+                assert (
+                    cut.shape[1] == 3
+                ), f"Cut coordinates in the provided file have {cut.shape[1]} components, expected 3"
+            except ValueError as e:
+                raise ValueError(
+                    f"Error while loading cut coordinates from '{cut}'. Check validity."
+                ) from e
+            except Exception as e:
+                raise e
+        else:
+            cut = cut.split(",")
+            for i, coord in enumerate(cut):
+                cut[i] = float(coord)
+            assert (
+                len(cut) == 3
+            ), f"Provided coordinates have {len(cut)} components, expected 3"
+
     # create output directory (if needed) and define output extension
     savedir, output, ext = process_output_path(output)
 
@@ -49,6 +73,17 @@ def process_image(
     n_cols = max([1, round(np.sqrt(n_features / 3))])
     n_rows = np.ceil(n_features / n_cols).astype(int)
 
+    if cut is not None and isinstance(cut, np.ndarray):
+        assert (
+            cut.shape[0] >= n_features
+        ), f"The csv with cut coordinates has less entries ({cut.shape[0]}) \
+            than the number of components to plot ({n_features})"
+        if cut.shape[0] > n_features:
+            print(
+                f"Be alert, the csv with cut coordinates has more entries ({cut.shape[0]}) \
+            than the number of components to plot ({n_features})"
+            )
+
     print("Plotting components:")
 
     # create figure and grid
@@ -65,6 +100,7 @@ def process_image(
     )
 
     # plot components
+    cuts_array = np.zeros((n_features, 3))
     for i in tqdm(range(n_features)):
         if extend:
             subgs = gridspec.GridSpecFromSubplotSpec(3, 1, subplot_spec=gs[i])
@@ -78,11 +114,18 @@ def process_image(
 
         # plot component
         if np.max(np.abs(data)) > thr:
-            if SGN == "neg":
-                cut_idx = np.unravel_index(np.argmin(data), data.shape)
+            if cut is None:
+                if SGN == "neg":
+                    cut_idx = np.unravel_index(np.argmin(data), data.shape)
+                else:
+                    cut_idx = np.unravel_index(np.argmax(data), data.shape)
+                cut_coords = apply_affine(nifti_affine, cut_idx)
+            elif isinstance(cut, list):
+                cut_coords = np.array(cut)
             else:
-                cut_idx = np.unravel_index(np.argmax(data), data.shape)
-            cut_coords = apply_affine(nifti_affine, cut_idx)
+                cut_coords = np.array(cut[i])
+
+            cuts_array[i] = cut_coords
 
             vmax = data.max()
             vmin = -vmax if SGN == "both" else data.min()
@@ -99,11 +142,12 @@ def process_image(
                 axes=ax[0],
                 **imshow_args,
             )
-            if annotate:
+            # annotate
+            if annotate != "none":
                 if components is not None:
-                    slicer.annotate(size=8, s=f"{components[i]}")
+                    slicer.annotate(size=8, text=f"{components[i]}", mode=annotate)
                 else:
-                    slicer.annotate(size=8, s=f"{i+1}")
+                    slicer.annotate(size=8, text=f"{i+1}", mode=annotate)
 
             if extend:
                 plot_map(
@@ -158,6 +202,7 @@ def process_image(
         )
 
     if rich:
+        # save config
         setup = {
             "nifti": NIFTI,
             "anat": ANAT,
@@ -169,6 +214,9 @@ def process_image(
         }
         with open(f"{savedir}{output}_config.json", "w", encoding="utf8") as f:
             json.dump(setup, f, indent=4)
+
+        # save cut coordinates
+        np.savetxt(f"{savedir}{output}_cuts.csv", cuts_array, delimiter=",")
 
     print("Done!")
 
@@ -190,7 +238,7 @@ def parse():
         "--nifti",
         type=str,
         required=True,
-        help="Path to the 4D nifti to convert to images",
+        help="Path to the 4D nifti of ICA components/3D nifti of ROI components to convert to images",
     )
     parser.add_argument(
         "-a",
@@ -213,8 +261,8 @@ def parse():
         "-o",
         "--output",
         type=str,
-        default="brainbow-output",
-        help="Name of the output file(s) (default: brainbow-output.png/svg).\
+        default="brainbow_output",
+        help="Name of the output file(s) (default: brainbow_output.png/svg).\
             You can specify the exact extension (png or svg). If none is provided, \
                 both extensions will be used.",
     )
@@ -253,9 +301,12 @@ def parse():
     )
     parser.add_argument(
         "--annotate",
-        default=True,
-        action=argparse.BooleanOptionalAction,
-        help="Enumerate components in the output figure",
+        type=str,
+        choices=["none", "minimal", "full"],
+        default="minimal",
+        help="Show components indices (minimal), \
+            components indices and cut coordinates (full), \
+                or nothing (none) on the output figure",
     )
     parser.add_argument(
         "-c",
@@ -264,6 +315,17 @@ def parse():
         type=int,
         help="Allows to provide a list of components to plot (e.g., '42 4 2'). \
                             Enumeration starts with 1.",
+        default=None,
+    )
+    parser.add_argument(
+        "--cut",
+        type=str,
+        help="Allows to manually set cut coordinates. \
+            Needs to be either a path to scv file (like the one created by '--rich' flag), \
+                or a comma separated list of cooridnates, which will be used for all components.\
+                    Coordinates order should be RAS+. \
+                        Be careful when using with '--components' flag: brainbow assumes\
+                            that csv cut coordinates correspond to the provided components.",
         default=None,
     )
 
@@ -285,6 +347,7 @@ def parse():
         dpi=args.dpi,
         annotate=args.annotate,
         components=args.components,
+        cut=args.cut,
     )
 
 

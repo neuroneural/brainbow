@@ -372,7 +372,7 @@ class CustomSlicer(object):
                 continue
             cut_ax.draw_cut(cut, data_bounds, bounding_box, type=type, **kwargs)
 
-    def annotate(self, size=12, **kwargs):
+    def annotate(self, text, mode="minimal", size=12, **kwargs):
         """Add annotation to the plot.
 
         Parameters
@@ -389,16 +389,30 @@ class CustomSlicer(object):
             Extra keyword arguments are passed to matplotlib's text
             function.
         """
-        kwargs = kwargs.copy()
-        if not "color" in kwargs:
-            if self._black_bg:
-                kwargs["color"] = "w"
-            else:
-                kwargs["color"] = "k"
+        if mode != "none":
+            kwargs = kwargs.copy()
+            if not "color" in kwargs:
+                if self._black_bg:
+                    kwargs["color"] = "w"
+                else:
+                    kwargs["color"] = "k"
 
-        bg_color = "k" if self._black_bg else "w"
+            bg_color = "k" if self._black_bg else "w"
 
-        self.axes["y"].add_annotation(size=size, bg_color=bg_color, **kwargs)
+            if mode in ["minimal", "full"]:
+                self.axes["y"].add_annotation(
+                    text, mode="component", size=size, bg_color=bg_color, **kwargs
+                )
+            if mode == "full":
+                self.axes["x"].add_annotation(
+                    None, mode="coordinates", size=size, bg_color=bg_color, **kwargs
+                )
+                self.axes["y"].add_annotation(
+                    None, mode="coordinates", size=size, bg_color=bg_color, **kwargs
+                )
+                self.axes["z"].add_annotation(
+                    None, mode="coordinates", size=size, bg_color=bg_color, **kwargs
+                )
 
 
 class CutAxes(object):
@@ -480,14 +494,28 @@ class CutAxes(object):
         ymin = min(ymins.min(), ymaxs.min())
         return xmin, xmax, ymin, ymax
 
-    def add_annotation(self, size, bg_color, **kwargs):
-        self.ax.text(
-            0.0,
-            1.0,
-            transform=self.ax.transAxes,
-            horizontalalignment="left",
-            verticalalignment="top",
-            size=size,
-            bbox=dict(boxstyle="square,pad=0", ec=bg_color, fc=bg_color, alpha=1),
-            **kwargs,
-        )
+    def add_annotation(self, text, mode, size, bg_color, **kwargs):
+        if mode == "component":
+            self.ax.text(
+                0.0,
+                1.0,
+                s=text,
+                transform=self.ax.transAxes,
+                horizontalalignment="center",
+                verticalalignment="center",
+                size=size,
+                bbox=dict(boxstyle="square,pad=0", ec=bg_color, fc=bg_color, alpha=1),
+                **kwargs,
+            )
+        elif mode == "coordinates":
+            self.ax.text(
+                0.5,
+                1.0,
+                s=f"{self.direction}: {self.coord:0.0f}",
+                transform=self.ax.transAxes,
+                horizontalalignment="center",
+                verticalalignment="center",
+                size=size,
+                bbox=dict(boxstyle="square,pad=0", ec=bg_color, fc=bg_color, alpha=1),
+                **kwargs,
+            )
