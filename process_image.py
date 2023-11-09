@@ -192,12 +192,14 @@ def process_image(
     if "png" in ext:
         fig.savefig(
             f"{savedir}{output}.png",
+            bbox_inches="tight",
             facecolor=(0, 0, 0),
             dpi=dpi,
         )
     if "svg" in ext:
         fig.savefig(
             f"{savedir}{output}.svg",
+            bbox_inches="tight",
             facecolor=(0, 0, 0),
         )
 
