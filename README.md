@@ -46,7 +46,7 @@ brainbow --nifti nifti.nii --anat anat.nii
     - default - `0.3`
 - `--norm/--no-norm`
     - whether the components from nifti should be normalized:
-        - z-scored,
+        - centered around median,
         - divided by the max abs value, and 
         - divided by the sign (`1 or -1`) of this max abs value.
     - may produce a better looking picture, but not recommended for QC
