@@ -70,7 +70,8 @@ def load_images(
     if normalize:
         # mask the data
         mask_idx = np.where(~combined_mask)
-        S = nifti_data[*mask_idx, :]
+        mask_slices = tuple([idx for idx in mask_idx])
+        S = nifti_data[mask_slices + (slice(None),)]
 
         S = S - np.median(S, axis=0)
 
@@ -81,7 +82,7 @@ def load_images(
         S = signs @ S
 
         S = S.T
-        nifti_data[*mask_idx, :] = S
+        nifti_data[mask_slices + (slice(None),)] = S
 
         combined_mask = np.stack([combined_mask] * nifti_data.shape[-1], axis=-1)
         nifti_data = np.ma.masked_array(nifti_data, mask=combined_mask)

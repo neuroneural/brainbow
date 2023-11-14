@@ -271,7 +271,7 @@ def parse():
     parser.add_argument(
         "--rich",
         default=False,
-        action=argparse.BooleanOptionalAction,
+        action="store_true",
         help="If passed, in addition to the basic output a config file \
             and a file containing cut coordinates is generated",
     )
@@ -282,16 +282,16 @@ def parse():
         help="Threshold value for component significance",
     )
     parser.add_argument(
-        "--norm",
-        default=True,
-        action=argparse.BooleanOptionalAction,
+        "--no-norm",
+        default=False,
+        action="store_true",
         help="Whether the nifti data should be normalized. May produce a better looking picture, \
             but not recommended for QA.",
     )
     parser.add_argument(
         "--extend",
         default=False,
-        action=argparse.BooleanOptionalAction,
+        action="store_true",
         help="If passed, in addition to overlay+underlay picture each component \
             will also have rows with only underlay/overlay",
     )
@@ -344,7 +344,7 @@ def parse():
         output=args.output,
         rich=args.rich,
         thr=args.thr,
-        normalize=args.norm,
+        normalize=not args.no_norm,
         extend=args.extend,
         dpi=args.dpi,
         annotate=args.annotate,

@@ -14,7 +14,7 @@ brainbow --nifti nifti.nii --anat anat.nii
 
 # Quick guide
 - provide path to nifti map (`-n/--nifti` flag) and anatomical underlay (`-a/--anat` flag)
-- control the output with `--sign`, `--thr`, and `--norm/--no-norm` flags
+- control the output with `--sign`, `--thr`, and `--no-norm` flags
 - to plot only certain components use `-c/--component` flag
 - to set cut coordinates manually, use `--cut` flag
 - see below for more info
@@ -43,18 +43,16 @@ brainbow --nifti nifti.nii --anat anat.nii
     - threshold value for component significance
     - if component is significant, `thr` is used to mask values: `-thr < value < thr`
     - default - `0.2`
-- `--norm/--no-norm`
-    - whether the components from nifti should be normalized:
+- `--no-norm`
+    - use do disable data normalization
+    - normalization includes:
         - centered around median,
         - divided by the max abs value, and 
-        - divided by the sign (`1 or -1`) of this max abs value.
-    - may produce a better looking picture, but not recommended for QC
-    - default - `--norm` (`True`)
-- `--extend/--no-extend`
-    - If `True`, in addition to overlay+underlay picture each component \
+        - divided by the sign (`1 or -1`) of this max abs value
+- `--extend`
+    - if passed, in addition to overlay+underlay picture each component \
             will also have a row with separate overlay/underlay
     - helpful for QC
-    - default - `--no-extend` (`False`)
 - `--dpi`
     - dpi for png output
     - default - `150`
