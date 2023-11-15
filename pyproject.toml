@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "brainbow"
-version = "0.1.8"
+version = "0.1.9"
 authors = [
     {name = "Pavel Popov", email = "paavali.popov@gmail.com"},
     {name = "Sergey Plis", email = "s.m.plis@gmail.com"},
 ]
 description = "Script for visualizing ICA/ROI brain parcellation"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.6"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",

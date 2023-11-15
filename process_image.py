@@ -246,7 +246,6 @@ def parse():
         "-a",
         "--anat",
         type=str,
-        required=True,
         help="Path to the anatomical image to use as underlay",
     )
     parser.add_argument(
