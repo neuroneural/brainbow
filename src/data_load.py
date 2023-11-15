@@ -1,3 +1,5 @@
+from importlib_resources import files
+
 import numpy as np
 import nibabel as nib
 
@@ -6,7 +8,7 @@ from scipy.ndimage import convolve1d
 
 def load_images(
     nifti_path,
-    anat_path,
+    anat_path=None,
     thr: float = None,
     normalize: bool = False,
     components: list = None,
@@ -15,6 +17,8 @@ def load_images(
     nifti_affine = nifti.affine
     nifti_data = nifti.get_fdata()
 
+    if anat_path is None:
+        anat_path = files("src.data").joinpath("mni_template.nii.gz")
     anat = nib.load(anat_path)
     anat_affine = anat.affine
     anat_data = anat.get_fdata()
