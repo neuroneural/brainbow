@@ -27,7 +27,6 @@ brainbow --nifti nifti.nii --anat anat.nii
     - required
 - `-a/--anat`
     - path to the anatomical image to use as an underlay
-    - required
 
 - `-o/--output`
     - name of the output file(s) 
