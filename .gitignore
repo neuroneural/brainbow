@@ -3,3 +3,4 @@ dist/
 data_samples/
 test.txt
 *__pycache__*
+brainbow_output.*
