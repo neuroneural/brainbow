@@ -85,7 +85,7 @@ def get_mask_bounds(mask, affine):
     The affine should be diagonal or diagonal-permuted.
     """
     (xmin, xmax), (ymin, ymax), (zmin, zmax) = get_bounds(mask.shape, affine)
-    slices = ndimage.find_objects(mask)
+    slices = ndimage.find_objects(mask.astype(int))
     if len(slices) == 0:
         warnings.warn("empty mask", stacklevel=2)
     else:
